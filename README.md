@@ -1,6 +1,14 @@
+<p align="center">
+  <img src="ClaudeFuel/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" alt="claude-fuel app icon">
+</p>
+
 # claude-fuel
 
 A native macOS menu-bar companion for Claude Code that shows live token usage, rate-limit countdowns, and burn-rate projections — right in your notch.
+
+![claude-fuel overview](design/screenshots/overview.png)
+
+At a glance: the notch island shows `27% ↓ 3h 19m`, the popover surfaces reset time, burn-rate ETA-to-limit, context window %, current call tokens, and active model.
 
 ## What it does
 
