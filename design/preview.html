@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claude-fuel · design preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --terra: #c4633f;
+    --terra-soft: #d98b6f;
+    --amber: #c98a2b;
+    --paper: #f4efe7;
+    --paper-2: #ece5d8;
+    --card: #fbf8f2;
+    --ink: #2b2722;
+    --ink-2: #6f675c;
+    --line: #ddd3c2;
+    --ok: #6f8f5f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #cfc7b8;
+    color: var(--ink);
+    padding: 48px 32px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-title {
+    font-family: 'Source Serif 4', serif;
+    font-size: 26px; font-weight: 600;
+    text-align: center; margin-bottom: 4px; color: #1f1c18;
+  }
+  .page-sub {
+    text-align: center; color: #5b544a; font-size: 13px;
+    margin-bottom: 44px;
+  }
+  .grid {
+    display: flex; flex-wrap: wrap; gap: 40px;
+    justify-content: center; align-items: flex-start;
+  }
+  .col { display: flex; flex-direction: column; gap: 28px; align-items: center; }
+  .label {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: #5b544a; text-align: center;
+  }
+
+  /* ---- menu bar strip ---- */
+  .menubar {
+    width: 360px; height: 26px; border-radius: 7px;
+    background: linear-gradient(#3a3530, #2c2825);
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 9px; gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  .mb-item { display: flex; align-items: center; gap: 5px;
+    color: #d8d2c6; font-size: 12px; }
+  .mb-item.dim { opacity: .55; }
+  .mb-fuel { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .gauge {
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 2px solid currentColor; position: relative;
+  }
+  .gauge::after {
+    content: ""; position: absolute; width: 2px; height: 6px;
+    background: currentColor; left: 50%; top: 50%;
+    transform-origin: bottom center; border-radius: 1px;
+  }
+  .g-ok    { color: #cfae4e; } .g-ok::after    { transform: translate(-50%,-100%) rotate(-50deg); }
+  .g-warn  { color: var(--amber); } .g-warn::after  { transform: translate(-50%,-100%) rotate(20deg); }
+  .g-crit  { color: var(--terra); } .g-crit::after  { transform: translate(-50%,-100%) rotate(70deg); }
+
+  /* ---- popover ---- */
+  .popover {
+    width: 380px; border-radius: 14px; overflow: hidden;
+    background: var(--paper);
+    box-shadow: 0 14px 44px rgba(0,0,0,.34), 0 0 0 .5px rgba(0,0,0,.18);
+  }
+  .pop-pad { padding: 18px 20px; }
+  .pop-section + .pop-section { border-top: 1px solid var(--line); }
+
+  .hdr { display: flex; align-items: center; justify-content: space-between; }
+  .wordmark { font-family: 'Source Serif 4', serif; font-weight: 600;
+    font-size: 16px; letter-spacing: -.01em; }
+  .wordmark .dot { color: var(--terra); }
+  .live { display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--ink-2); }
+  .live .pip { width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok); }
+
+  .soc-pct { font-family: 'Source Serif 4', serif; font-weight: 600;
+    font-size: 46px; line-height: 1; letter-spacing: -.02em; }
+  .soc-pct small { font-size: 20px; color: var(--ink-2); font-weight: 500; }
+  .soc-reset { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+  .bar { height: 9px; border-radius: 5px; background: var(--paper-2);
+    margin: 14px 0 12px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 5px;
+    background: linear-gradient(90deg, var(--terra-soft), var(--terra)); }
+  .stats { display: flex; gap: 8px; }
+  .stat { flex: 1; background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 10px; }
+  .stat .k { font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ink-2); }
+  .stat .v { font-family: 'Source Serif 4', serif; font-size: 17px;
+    font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--ink-2); margin-bottom: 9px; }
+  .curve { display: flex; align-items: flex-end; gap: 4px; height: 56px; }
+  .curve > i { flex: 1; background: var(--terra-soft); border-radius: 3px 3px 0 0; }
+  .curve > i.hot { background: var(--terra); }
+
+  .nudge { display: flex; gap: 10px; background: #f6e7df;
+    border: 1px solid #e7c3b1; border-radius: 10px; padding: 11px 12px; }
+  .nudge .ic { font-size: 15px; }
+  .nudge .tx { font-size: 12px; line-height: 1.45; }
+  .nudge .tx b { font-weight: 600; }
+
+  .footer { display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: var(--ink-2); }
+  .conf { display: flex; align-items: center; gap: 5px; }
+  .conf .pip { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .footer .acts { display: flex; gap: 14px; }
+  .footer .acts span { cursor: default; }
+
+  /* dark popover */
+  .dark {
+    --paper: #211e1b; --paper-2: #322d28; --card: #2a2622;
+    --ink: #ece6da; --ink-2: #9b9183; --line: #3a352f;
+  }
+  .dark .nudge { background: #3a2a22; border-color: #5a4234; }
+  .dark .nudge .tx { color: #ece6da; }
+
+  /* ---- icon ---- */
+  .icons { display: flex; gap: 22px; }
+  .appicon {
+    width: 96px; height: 96px; border-radius: 22px;
+    background: radial-gradient(120% 120% at 30% 25%, #f6efe2, #e7d8c0);
+    box-shadow: 0 6px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .appicon svg { width: 60px; height: 60px; }
+  .cap { font-size: 11px; color: #5b544a; text-align: center; margin-top: 7px; }
+</style>
+</head>
+<body>
+  <div class="page-title">claude-fuel</div>
+  <div class="page-sub">design preview — menu bar · popover (light / dark) · app icon</div>
+
+  <div class="grid">
+
+    <!-- MENU BAR -->
+    <div class="col">
+      <div class="label">Menu bar — three states</div>
+      <div class="menubar">
+        <span class="mb-item"><span class="gauge g-ok"></span><span class="mb-fuel">3h12m</span></span>
+      </div>
+      <div class="menubar">
+        <span class="mb-item"><span class="gauge g-warn"></span><span class="mb-fuel">1h05m</span></span>
+      </div>
+      <div class="menubar">
+        <span class="mb-item dim"><span class="gauge g-crit"></span><span class="mb-fuel">18m</span></span>
+      </div>
+      <div class="cap" style="max-width:300px">Filling gauge needle encodes remaining capacity;
+        colour shifts ink&nbsp;→ amber&nbsp;→ terracotta. Dimmed = stale session.</div>
+
+      <div class="label" style="margin-top:14px">App icon</div>
+      <div class="icons">
+        <div>
+          <div class="appicon">
+            <svg viewBox="0 0 100 100" fill="none">
+              <path d="M18 70 A34 34 0 1 1 82 70" stroke="#e3d4ba" stroke-width="11" stroke-linecap="round"/>
+              <path d="M18 70 A34 34 0 0 1 50 18" stroke="#c4633f" stroke-width="11" stroke-linecap="round"/>
+              <circle cx="50" cy="62" r="6.5" fill="#2b2722"/>
+              <path d="M50 62 L70 36" stroke="#2b2722" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="cap">gauge motif</div>
+        </div>
+        <div>
+          <div class="appicon" style="background:#211e1b">
+            <svg viewBox="0 0 100 100" fill="none">
+              <path d="M18 70 A34 34 0 1 1 82 70" stroke="#3a352f" stroke-width="11" stroke-linecap="round"/>
+              <path d="M18 70 A34 34 0 0 1 50 18" stroke="#c4633f" stroke-width="11" stroke-linecap="round"/>
+              <circle cx="50" cy="62" r="6.5" fill="#ece6da"/>
+              <path d="M50 62 L70 36" stroke="#ece6da" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="cap">dark variant</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIGHT POPOVER -->
+    <div class="col">
+      <div class="label">Popover — light</div>
+      <div class="popover" id="popLight"></div>
+    </div>
+
+    <!-- DARK POPOVER -->
+    <div class="col">
+      <div class="label">Popover — dark</div>
+      <div class="popover dark" id="popDark"></div>
+    </div>
+
+  </div>
+
+<script>
+  const popover = `
+    <div class="pop-section pop-pad">
+      <div class="hdr">
+        <div class="wordmark">claude<span class="dot">·</span>fuel</div>
+        <div class="live"><span class="pip"></span>live</div>
+      </div>
+    </div>
+
+    <div class="pop-section pop-pad">
+      <div class="soc-pct">38<small>% left</small></div>
+      <div class="soc-reset">window resets in 1h 05m · 137k of 220k used</div>
+      <div class="bar"><i style="width:62%"></i></div>
+      <div class="stats">
+        <div class="stat"><div class="k">This session</div><div class="v">11 turns</div></div>
+        <div class="stat"><div class="k">Latest turn</div><div class="v">24.6k</div></div>
+        <div class="stat"><div class="k">Model</div><div class="v">Opus</div></div>
+      </div>
+    </div>
+
+    <div class="pop-section pop-pad">
+      <div class="eyebrow">Active session — cost per turn</div>
+      <div class="curve">
+        <i style="height:14%"></i><i style="height:19%"></i><i style="height:22%"></i>
+        <i style="height:31%"></i><i style="height:38%"></i><i style="height:44%"></i>
+        <i style="height:55%"></i><i style="height:63%"></i><i style="height:74%"></i>
+        <i class="hot" style="height:88%"></i><i class="hot" style="height:100%"></i>
+      </div>
+    </div>
+
+    <div class="pop-section pop-pad">
+      <div class="nudge">
+        <span class="ic">🔥</span>
+        <span class="tx"><b>Consider a fresh chat.</b> This turn costs 3.6× your
+          first — context replay is now most of the spend.</span>
+      </div>
+    </div>
+
+    <div class="pop-section pop-pad">
+      <div class="eyebrow">Daily</div>
+      <div class="stats">
+        <div class="stat"><div class="k">Today</div><div class="v">412k</div></div>
+        <div class="stat"><div class="k">Last 24h</div><div class="v">498k</div></div>
+      </div>
+    </div>
+
+    <div class="pop-section pop-pad">
+      <div class="footer">
+        <div class="conf"><span class="pip"></span>Confidence: High</div>
+        <div class="acts"><span>⚙ Settings</span><span>Quit</span></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('popLight').innerHTML = popover;
+  document.getElementById('popDark').innerHTML = popover;
+</script>
+</body>
+</html>
