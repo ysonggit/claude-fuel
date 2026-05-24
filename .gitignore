@@ -9,6 +9,9 @@ xcuserdata/
 # macOS
 .DS_Store
 
+# Release artifacts
+*.dmg
+
 # Swift Package Manager
 .swiftpm/
 .build/

@@ -107,6 +107,16 @@ When the status line's `resets_at` is in the past, the rate-limit window has exp
 
 ### Install
 
+**Option A — Download the .dmg** (recommended)
+
+1. Grab the latest `ClaudeFuel-*.dmg` from [Releases](https://github.com/ysonggit/claude-fuel/releases), open it, drag **ClaudeFuel.app** to Applications.
+2. First launch: macOS will warn because the build is ad-hoc signed (no Apple Developer ID). Right-click the app → **Open** → **Open** in the dialog. Or run:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/ClaudeFuel.app
+   ```
+
+**Option B — Build from source**
+
 1. Build and run from Xcode:
    ```bash
    git clone https://github.com/ysonggit/claude-fuel.git
@@ -152,6 +162,18 @@ Pure Swift/SwiftUI, zero dependencies. ~1500 lines of code.
 | Popover | `PopoverView.swift` |
 | Design | `Colors.swift`, `Typography.swift`, `Spacing.swift` |
 | Scripts | `claude-fuel-statusline.sh`, `claude-fuel-refresh.sh` |
+
+## Releasing
+
+```bash
+Scripts/release.sh 0.2.0           # builds ClaudeFuel-0.2.0.dmg
+git tag v0.2.0 && git push --tags
+gh release create v0.2.0 ClaudeFuel-0.2.0.dmg \
+  --title "v0.2.0" \
+  --notes "Ad-hoc signed. See README for Gatekeeper bypass."
+```
+
+The build is ad-hoc signed (no Developer ID, no notarization). End users need the right-click-Open or `xattr` step described above.
 
 ## License
 
