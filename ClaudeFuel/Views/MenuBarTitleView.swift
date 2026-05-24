@@ -24,7 +24,7 @@ struct MenuBarTitleView: View {
     /// Capacity remaining, 0–100. The popover frames usage as a meter, so the
     /// menu bar shows what's *left*, not what's spent.
     private var remainingPercent: Int {
-        Int(((1 - state.window.fillFraction) * 100).rounded())
+        state.fiveHourRemainingPercent ?? 100
     }
 
     private func titleText(remaining: Int) -> String {
@@ -33,10 +33,10 @@ struct MenuBarTitleView: View {
             text += prefix + " "
         }
         text += "\(remaining)%"
-        if let reset = state.window.timeUntilReset() {
+        if let reset = state.fiveHourResetInterval {
             text += " · " + DateFormatting.durationShort(reset)
         }
-        if state.isStale { text += " ·zz" }
+        if state.isStatusLineStale { text += " ·zz" }
         return text
     }
 

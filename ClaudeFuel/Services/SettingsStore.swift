@@ -1,16 +1,14 @@
 import Foundation
 
-/// User-configurable settings (FR-C1, FR-U3). Defaults are conservative for a
-/// Pro subscriber until the user calibrates (FR-C2).
+/// User-configurable settings. Usage values come from Claude Code's
+/// status-line payload, so there is no local quota cap or calibration state.
 struct Settings: Codable, Equatable {
-    /// Rolling 5-hour window cap, in weighted tokens.
-    var windowTokenCap: Double = 220_000
-    /// Optional daily soft budget; `nil` means unset (opt-in, FR-C1).
-    var dailySoftBudget: Double?
     /// Launch at login via `SMAppService` (wired in a later milestone).
     var launchAtLogin: Bool = false
     /// Show only the gauge SF Symbol in the menu bar, no title (FR-U1).
     var iconOnlyMenuBar: Bool = false
+    /// Show the island pill at the screen notch / top centre.
+    var showIsland: Bool = false
 }
 
 /// Loads and persists `Settings` as JSON under Application Support (NFR 4.3).
