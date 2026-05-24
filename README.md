@@ -31,7 +31,7 @@ Claude Code CLI
     │       └── writes status.json
     │
     └── background refresh daemon (every 60s)
-        └── claude -p "." --bare
+        └── interactive claude session (faked TTY, 30s timeout)
             └── triggers status line → writes status.json
 
          ┌─────────────────┐

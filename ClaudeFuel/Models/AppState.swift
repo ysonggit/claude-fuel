@@ -267,9 +267,12 @@ final class AppState {
         }
     }
 
-    /// Launches a background `claude -p "."` every 60s to refresh
+    /// Launches a background refresh daemon every 60s to refresh
     /// account-wide rate limits even when the user works in the desktop app.
     private func startRefreshDaemon() {
+        // Guard against double-spawn (e.g. if start() is called twice).
+        if let existing = refreshProcess, existing.isRunning { return }
+
         let scriptPath = Bundle.main.bundlePath
             .replacingOccurrences(of: ".app/Contents/MacOS/ClaudeFuel", with: "")
         // Prefer installed script, fall back to bundled.
@@ -285,7 +288,8 @@ final class AppState {
         process.arguments = [script, "60"]
         process.standardOutput = nil
         process.standardError = nil
-        // Don't let the refresh daemon outlive the app.
+        // Run in its own process group so we can kill the entire tree.
+        process.qualityOfService = .utility
         process.terminationHandler = { _ in }
 
         do {
@@ -296,9 +300,16 @@ final class AppState {
         }
     }
 
-    /// Stop the refresh daemon when the app quits.
+    /// Stop the refresh daemon and its child processes when the app quits.
     func stopRefresh() {
-        refreshProcess?.terminate()
+        guard let process = refreshProcess, process.isRunning else {
+            refreshProcess = nil
+            return
+        }
+        // Kill the process group to catch orphaned claude/script children.
+        let pid = process.processIdentifier
+        kill(-pid, SIGTERM)
+        process.terminate()
         refreshProcess = nil
     }
 }
