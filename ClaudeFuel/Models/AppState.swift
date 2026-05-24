@@ -1,9 +1,9 @@
 import Foundation
 import Observation
 
-/// Top-level observable state. Two data sources feed the usage gauge:
-/// 1. Status-line hook (fast, from Claude Code interactive sessions).
-/// 2. RateLimitPoller (API header polling, works when statusLine is silent).
+/// Top-level observable state. Claude Code's status-line payload is the only
+/// usage source: it contains the server-side rate-limit fields that local
+/// JSONL transcripts cannot reconstruct reliably.
 @MainActor
 @Observable
 final class AppState {
@@ -15,7 +15,6 @@ final class AppState {
             guard settings != oldValue else { return }
             store.save(settings)
             syncIslandVisibility()
-            syncRateLimitPoller()
         }
     }
 
@@ -27,7 +26,6 @@ final class AppState {
     private let settingsWindow = SettingsWindowController()
     private let islandPanel = IslandPanelController()
     private let statusLineWatcher = StatusLineWatcher()
-    private let rateLimitPoller = RateLimitPoller()
     private var refreshProcess: Process?
 
     init() {
@@ -229,25 +227,8 @@ final class AppState {
         }
     }
 
-    /// Start or stop the API poller based on settings. Only polls when both
-    /// the toggle is enabled AND an API key is provided.
-    private func syncRateLimitPoller() {
-        guard settings.enableRateLimitPolling else {
-            rateLimitPoller.stop()
-            return
-        }
-        let key = settings.anthropicApiKey.trimmingCharacters(in: .whitespaces)
-        if key.isEmpty {
-            rateLimitPoller.stop()
-        } else {
-            rateLimitPoller.updateApiKey(key)
-            rateLimitPoller.start()
-        }
-    }
-
     private func start() async {
         syncIslandVisibility()
-        syncRateLimitPoller()
         startDisplayClock()
         startRefreshDaemon()
 
@@ -319,9 +300,8 @@ final class AppState {
         }
     }
 
-    /// Stop the refresh daemon and API poller when the app quits.
+    /// Stop the refresh daemon and its child processes when the app quits.
     func stopRefresh() {
-        rateLimitPoller.stop()
         guard let process = refreshProcess, process.isRunning else {
             refreshProcess = nil
             return

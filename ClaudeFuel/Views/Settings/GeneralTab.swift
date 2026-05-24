@@ -24,21 +24,6 @@ struct GeneralTab: View {
             Section("Startup") {
                 Toggle("Launch claude-fuel at login", isOn: launchAtLogin)
             }
-
-            Section("Rate limit polling") {
-                Toggle("Enable API rate limit polling", isOn: $state.settings.enableRateLimitPolling)
-                Text("Polls the Anthropic API directly for rate-limit data. Covers CLI usage (which doesn't fire the statusLine hook). Requires an API key.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if state.settings.enableRateLimitPolling {
-                    SecureField("Anthropic API key", text: $state.settings.anthropicApiKey)
-                        .textContentType(.password)
-                    Text("~$0.00001 per poll (Haiku, 1 token). Leave blank to disable API polling even when the toggle is on.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
         }
         .formStyle(.grouped)
     }
