@@ -13,8 +13,62 @@ dir="$HOME/Library/Application Support/dev.ysong.claude-fuel"
 mkdir -p "$dir"
 status="$dir/status.json"
 
-# Always write. Let the app decide what to trust.
-echo "$input" > "$status"
+# Only overwrite when the incoming payload is actually fresher than what's
+# on disk (same reset window + higher used_percentage, or newer window).
+# This prevents a stale idle session from clobbering data written by an
+# active session, or a refresh-daemon CLI session (separate auth) from
+# overwriting desktop-app data.
+maybe_write() {
+  local incoming="$1"
+  local target="$2"
+
+  if [ ! -f "$target" ]; then
+    echo "$incoming" > "$target"
+    return
+  fi
+
+  local in_resets in_used ex_resets ex_used
+  in_resets=$(echo "$incoming" | jq -r '.rate_limits.five_hour.resets_at // empty')
+  in_used=$(echo "$incoming"   | jq -r '.rate_limits.five_hour.used_percentage // empty')
+  ex_resets=$(jq -r '.rate_limits.five_hour.resets_at // empty' "$target")
+  ex_used=$(jq   -r '.rate_limits.five_hour.used_percentage // empty' "$target")
+
+  # If incoming lacks rate-limit data, accept it anyway (it has other
+  # useful fields like model, cost, context_window).
+  if [ -z "$in_resets" ] || [ -z "$in_used" ]; then
+    echo "$incoming" > "$target"
+    return
+  fi
+
+  # If existing file lacks rate-limit data, accept incoming.
+  if [ -z "$ex_resets" ] || [ -z "$ex_used" ]; then
+    echo "$incoming" > "$target"
+    return
+  fi
+
+  # Newer reset window → always accept.
+  if [ "$in_resets" -gt "$ex_resets" ] 2>/dev/null; then
+    echo "$incoming" > "$target"
+    return
+  fi
+
+  # Same window, higher usage → accept (fresher reading).
+  if [ "$in_resets" -eq "$ex_resets" ] 2>/dev/null; then
+    if awk "BEGIN {exit !($in_used >= $ex_used)}" 2>/dev/null; then
+      echo "$incoming" > "$target"
+      return
+    fi
+  fi
+
+  # Stale — skip this write.
+}
+
+# Always write when jq is unavailable (degraded mode).
+if command -v jq &>/dev/null; then
+  maybe_write "$input" "$status"
+else
+  echo "$input" > "$status"
+fi
 
 # Echo compact status for Claude Code's terminal UI.
 if command -v jq &>/dev/null; then

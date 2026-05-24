@@ -9,6 +9,11 @@ struct Settings: Codable, Equatable {
     var iconOnlyMenuBar: Bool = false
     /// Show the island pill at the screen notch / top centre.
     var showIsland: Bool = false
+    /// Opt-in: poll the Anthropic API directly for rate limits. When enabled
+    /// AND an API key is provided, the RateLimitPoller runs alongside the
+    /// statusLine hook for CLI coverage. Off by default.
+    var enableRateLimitPolling: Bool = false
+    var anthropicApiKey: String = ""
 }
 
 /// Loads and persists `Settings` as JSON under Application Support (NFR 4.3).
