@@ -74,24 +74,29 @@ struct PopoverView: View {
                 .foregroundStyle(CFColors.ink2)
                 .padding(.top, 3)
 
-            if let eta = state.etaToLimit {
-                HStack(spacing: 4) {
+            HStack(spacing: 4) {
+                if let eta = state.etaToLimit {
                     Text(state.willHitLimit ? "⚠" : "✓")
                         .font(.system(size: 10))
                     Text(etaText(eta))
                         .font(CFType.body)
                         .foregroundStyle(state.willHitLimit ? CFColors.terra : CFColors.ink2)
-                }
-                .padding(.top, 2)
-            }
-
-            if let sevenDay = state.sevenDayRemainingPercent {
-                HStack(spacing: 4) {
-                    Text(sevenDayLine(remaining: sevenDay))
+                } else if state.hasData {
+                    Text("→")
+                        .font(.system(size: 10))
+                        .foregroundStyle(CFColors.ink2)
+                    Text("burn rate: collecting data…")
                         .font(CFType.body)
                         .foregroundStyle(CFColors.ink2)
                 }
-                .padding(.top, 2)
+            }
+            .padding(.top, 2)
+
+            if let sevenDay = state.sevenDayRemainingPercent {
+                Text(sevenDayLine(remaining: sevenDay))
+                    .font(CFType.body)
+                    .foregroundStyle(CFColors.ink2)
+                    .padding(.top, 2)
             }
 
             meterBar(fraction: fillFraction)
@@ -108,7 +113,10 @@ struct PopoverView: View {
 
     private var resetLine: String {
         guard let reset = state.fiveHourResetInterval else {
-            return "5-hour window reset"
+            if state.hasData {
+                return "window reset — awaiting fresh data"
+            }
+            return "waiting for Claude Code"
         }
         var line = "resets in \(DateFormatting.durationShort(reset))"
         if let time = state.fiveHourResetTime {
@@ -211,7 +219,10 @@ struct PopoverView: View {
                 Button("Settings") { state.showSettings() }
                     .buttonStyle(.plain)
                     .font(CFType.caption)
-                Button("Quit") { NSApp.terminate(nil) }
+                Button("Quit") {
+                    state.stopRefresh()
+                    NSApp.terminate(nil)
+                }
                     .buttonStyle(.plain)
                     .font(CFType.caption)
             }

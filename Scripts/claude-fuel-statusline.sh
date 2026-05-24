@@ -13,15 +13,8 @@ dir="$HOME/Library/Application Support/dev.ysong.claude-fuel"
 mkdir -p "$dir"
 status="$dir/status.json"
 
-new_resets=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // 0' 2>/dev/null)
-old_resets=0
-if [ -f "$status" ]; then
-  old_resets=$(jq -r '.rate_limits.five_hour.resets_at // 0' "$status" 2>/dev/null)
-fi
-
-if [ "${new_resets:-0}" -ge "${old_resets:-0}" ]; then
-  echo "$input" > "$status"
-fi
+# Always write. Let the app decide what to trust.
+echo "$input" > "$status"
 
 # Echo compact status for Claude Code's terminal UI.
 if command -v jq &>/dev/null; then

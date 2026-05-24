@@ -26,6 +26,7 @@ final class AppState {
     private let settingsWindow = SettingsWindowController()
     private let islandPanel = IslandPanelController()
     private let statusLineWatcher = StatusLineWatcher()
+    private var refreshProcess: Process?
 
     init() {
         settings = store.load()
@@ -58,15 +59,18 @@ final class AppState {
         return displayNow >= reset
     }
 
+    /// 5-hour remaining percentage (0–100).
+    /// Always shows last known value (even if expired). The UI uses
+    /// `isStatusLineStale` to badge it when the window has reset.
     var fiveHourRemainingPercent: Int? {
-        guard statusLine != nil, !isFiveHourExpired else { return nil }
-        return statusLine?.fiveHourRemainingPercent
+        statusLine?.fiveHourRemainingPercent
     }
 
     var sevenDayRemainingPercent: Int? {
         statusLine?.sevenDayRemainingPercent
     }
 
+    /// Time until the 5-hour window resets. Nil when expired.
     var fiveHourResetInterval: TimeInterval? {
         guard let reset = fiveHourResetDate, displayNow < reset else { return nil }
         return reset.timeIntervalSince(displayNow)
@@ -226,9 +230,14 @@ final class AppState {
     private func start() async {
         syncIslandVisibility()
         startDisplayClock()
+        startRefreshDaemon()
+
+        // Access `updates` first to initialize the AsyncStream continuation,
+        // THEN call start() so the initial readAndEmit() can yield.
+        let updates = statusLineWatcher.updates
         statusLineWatcher.start()
 
-        for await data in statusLineWatcher.updates {
+        for await data in updates {
             statusLine = data
             displayNow = Date()
 
@@ -256,5 +265,40 @@ final class AppState {
                 }
             }
         }
+    }
+
+    /// Launches a background `claude -p "."` every 60s to refresh
+    /// account-wide rate limits even when the user works in the desktop app.
+    private func startRefreshDaemon() {
+        let scriptPath = Bundle.main.bundlePath
+            .replacingOccurrences(of: ".app/Contents/MacOS/ClaudeFuel", with: "")
+        // Prefer installed script, fall back to bundled.
+        let candidates = [
+            NSHomeDirectory() + "/.claude/claude-fuel-refresh.sh",
+            scriptPath + "/Scripts/claude-fuel-refresh.sh",
+        ]
+        guard let script = candidates.first(where: { FileManager.default.fileExists(atPath: $0) })
+        else { return }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = [script, "60"]
+        process.standardOutput = nil
+        process.standardError = nil
+        // Don't let the refresh daemon outlive the app.
+        process.terminationHandler = { _ in }
+
+        do {
+            try process.run()
+            refreshProcess = process
+        } catch {
+            // Silent failure — refresh is best-effort.
+        }
+    }
+
+    /// Stop the refresh daemon when the app quits.
+    func stopRefresh() {
+        refreshProcess?.terminate()
+        refreshProcess = nil
     }
 }

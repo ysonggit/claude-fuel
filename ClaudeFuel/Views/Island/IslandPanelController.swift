@@ -104,17 +104,23 @@ final class IslandPanelController {
             || screen.auxiliaryTopRightArea != nil
     }
 
-    /// Panel size: matches the notch width with a bit of extra height below
-    /// for the content row. The panel's top portion overlaps the notch (black
-    /// on black); the bottom portion extends below it with the actual text.
+    /// Compute the notch width from the gap between the two auxiliary top areas.
+    /// Falls back to 180pt if the API doesn't provide the info.
+    private static func notchWidth(screen: NSScreen) -> CGFloat {
+        if let left = screen.auxiliaryTopLeftArea,
+           let right = screen.auxiliaryTopRightArea {
+            // Notch = screen width minus the two flanking areas.
+            return screen.frame.width - left.width - right.width
+        }
+        return 180 // safe default for 14"/16" MBP
+    }
+
+    /// Panel size: matches the physical notch width exactly.
     private static func panelSize(screen: NSScreen?, isNotched: Bool) -> NSSize {
-        guard let screen else { return NSSize(width: 240, height: 60) }
+        guard let screen else { return NSSize(width: 200, height: 50) }
         let notchHeight = screen.safeAreaInsets.top
-        // Notch width ≈ 190pt on 14"/16" MBP; add a margin for rounded corners.
-        let width: CGFloat = isNotched ? 220 : 240
-        // Notch band + content row. The content sits at the bottom edge of
-        // the notch band so it appears to be inside the notch.
-        let height: CGFloat = isNotched ? notchHeight + 22 : 60
+        let width: CGFloat = isNotched ? notchWidth(screen: screen) : 200
+        let height: CGFloat = isNotched ? notchHeight + 22 : 50
         return NSSize(width: width, height: height)
     }
 }
