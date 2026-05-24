@@ -13,7 +13,19 @@ dir="$HOME/Library/Application Support/dev.ysong.claude-fuel"
 mkdir -p "$dir"
 status="$dir/status.json"
 
-# Always write. Let the app decide what to trust.
+# Guard against stale/rate-limited sessions: a session that hit a rate
+# limit reports used_percentage=0 (no API calls were made). Never
+# clobber real quota data with zero-usage data from a blocked session.
+if [[ -f "$status" ]] && command -v jq &>/dev/null; then
+  incoming=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // 0')
+  existing=$(jq -r '.rate_limits.five_hour.used_percentage // 0' "$status")
+  if (( $(echo "$incoming < $existing" | bc -l 2>/dev/null || echo 0) )); then
+    # Incoming is lower — likely a rate-limited session with no API calls.
+    # Keep existing data but update the file mtime so staleness tracking works.
+    touch "$status"
+    exit 0
+  fi
+fi
 echo "$input" > "$status"
 
 # Echo compact status for Claude Code's terminal UI.
