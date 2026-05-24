@@ -14,6 +14,19 @@ struct Settings: Codable, Equatable {
     /// statusLine hook for CLI coverage. Off by default.
     var enableRateLimitPolling: Bool = false
     var anthropicApiKey: String = ""
+
+    init() {}
+
+    /// Custom init to handle old settings.json files that lack the
+    /// `enableRateLimitPolling` / `anthropicApiKey` keys added in c1.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        iconOnlyMenuBar = try c.decodeIfPresent(Bool.self, forKey: .iconOnlyMenuBar) ?? false
+        showIsland = try c.decodeIfPresent(Bool.self, forKey: .showIsland) ?? false
+        enableRateLimitPolling = try c.decodeIfPresent(Bool.self, forKey: .enableRateLimitPolling) ?? false
+        anthropicApiKey = try c.decodeIfPresent(String.self, forKey: .anthropicApiKey) ?? ""
+    }
 }
 
 /// Loads and persists `Settings` as JSON under Application Support (NFR 4.3).
