@@ -2,8 +2,6 @@
 
 A native macOS menu-bar companion for Claude Code that shows live token usage, rate-limit countdowns, and burn-rate projections — right in your notch.
 
-![claude-fuel overview — island bar, popover dashboard, and menu bar gauge](screenshot-overview.png)
-
 ## What it does
 
 - **Notch island bar**: usage % + reset countdown displayed inside the macOS Dynamic Island / notch area
