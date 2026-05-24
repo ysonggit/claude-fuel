@@ -69,6 +69,10 @@ struct IslandContentView: View {
                 .monospacedDigit()
                 .foregroundStyle(percentColor)
 
+            Text(trendArrow)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
+
             if let reset = state.fiveHourResetInterval {
                 Text(DateFormatting.durationShort(reset))
                     .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -103,6 +107,14 @@ struct IslandContentView: View {
         case ..<20: return CFColors.terra
         case ..<50: return CFColors.amber
         default:    return .white
+        }
+    }
+
+    private var trendArrow: String {
+        switch state.burnTrend {
+        case .accelerating: return "↑"
+        case .steady:       return "→"
+        case .cooling:      return "↓"
         }
     }
 }

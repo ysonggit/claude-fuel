@@ -74,11 +74,24 @@ struct PopoverView: View {
                 .foregroundStyle(CFColors.ink2)
                 .padding(.top, 3)
 
+            if let eta = state.etaToLimit {
+                HStack(spacing: 4) {
+                    Text(state.willHitLimit ? "⚠" : "✓")
+                        .font(.system(size: 10))
+                    Text(etaText(eta))
+                        .font(CFType.body)
+                        .foregroundStyle(state.willHitLimit ? CFColors.terra : CFColors.ink2)
+                }
+                .padding(.top, 2)
+            }
+
             if let sevenDay = state.sevenDayRemainingPercent {
-                Text("7-day window: \(sevenDay)% left")
-                    .font(CFType.body)
-                    .foregroundStyle(CFColors.ink2)
-                    .padding(.top, 2)
+                HStack(spacing: 4) {
+                    Text(sevenDayLine(remaining: sevenDay))
+                        .font(CFType.body)
+                        .foregroundStyle(CFColors.ink2)
+                }
+                .padding(.top, 2)
             }
 
             meterBar(fraction: fillFraction)
@@ -97,7 +110,34 @@ struct PopoverView: View {
         guard let reset = state.fiveHourResetInterval else {
             return "5-hour window reset"
         }
-        return "window resets in \(DateFormatting.durationShort(reset))"
+        var line = "resets in \(DateFormatting.durationShort(reset))"
+        if let time = state.fiveHourResetTime {
+            line += " (\(DateFormatting.clock(time)))"
+        }
+        return line
+    }
+
+    private func etaText(_ eta: TimeInterval) -> String {
+        if state.willHitLimit {
+            return "at this pace, hits limit in \(DateFormatting.durationShort(eta))"
+        } else {
+            return "on pace — won't hit limit before reset"
+        }
+    }
+
+    private func sevenDayLine(remaining: Int) -> String {
+        var line = "7-day: \(remaining)% left"
+        if let days = state.sevenDayDaysLeft {
+            line += " · \(days)d left"
+        }
+        if let pacing = state.sevenDayPacing {
+            switch pacing {
+            case .underPace: line += " · under pace"
+            case .onPace:    line += " · on pace"
+            case .overPace:  line += " · over pace"
+            }
+        }
+        return line
     }
 
     private var contextText: String {

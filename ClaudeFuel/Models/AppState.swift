@@ -18,6 +18,10 @@ final class AppState {
         }
     }
 
+    /// Ring buffer of recent status-line snapshots for burn-rate computation.
+    /// ~360 entries ≈ 30 min at 5s refresh.
+    private var snapshots = RingBuffer<UsageSnapshot>(capacity: 720)
+
     private let store = SettingsStore()
     private let settingsWindow = SettingsWindowController()
     private let islandPanel = IslandPanelController()
@@ -91,6 +95,100 @@ final class AppState {
         return cost.formatted(.currency(code: "USD").precision(.fractionLength(2...4)))
     }
 
+    // MARK: - Burn rate & projections
+
+    /// Burn rate in percentage-points per hour, computed from the snapshot
+    /// buffer. `nil` when fewer than 2 snapshots exist in the current window.
+    var burnRatePerHour: Double? {
+        let pts = snapshots.elements.filter { snap in
+            guard let resetsAt = statusLine?.rateLimits?.fiveHour?.resetsAt else { return false }
+            return snap.resetsAt == resetsAt
+        }
+        guard pts.count >= 2,
+              let first = pts.first, let last = pts.last else { return nil }
+        let dt = last.timestamp.timeIntervalSince(first.timestamp)
+        guard dt >= 30 else { return nil } // need ≥30s of data
+        let dp = last.usedPercent - first.usedPercent
+        guard dp >= 0 else { return nil }
+        return dp / (dt / 3600)
+    }
+
+    /// Trend direction for the island bar arrow.
+    enum BurnTrend { case accelerating, steady, cooling }
+
+    var burnTrend: BurnTrend {
+        let pts = snapshots.elements.filter { snap in
+            guard let resetsAt = statusLine?.rateLimits?.fiveHour?.resetsAt else { return false }
+            return snap.resetsAt == resetsAt
+        }
+        guard pts.count >= 6 else { return .steady }
+        let mid = pts.count / 2
+        let firstHalf = Array(pts[..<mid])
+        let secondHalf = Array(pts[mid...])
+
+        func rate(_ slice: [UsageSnapshot]) -> Double? {
+            guard let a = slice.first, let b = slice.last else { return nil }
+            let dt = b.timestamp.timeIntervalSince(a.timestamp)
+            guard dt > 10 else { return nil }
+            return (b.usedPercent - a.usedPercent) / dt
+        }
+
+        guard let r1 = rate(firstHalf), let r2 = rate(secondHalf) else { return .steady }
+        if r2 > r1 * 1.3 { return .accelerating }
+        if r2 < r1 * 0.7 { return .cooling }
+        return .steady
+    }
+
+    /// Projected time (in seconds) until usage hits 100%, based on current
+    /// burn rate. `nil` when burn rate is zero or unknown.
+    var etaToLimit: TimeInterval? {
+        guard let rate = burnRatePerHour, rate > 0,
+              let remaining = fiveHourRemainingPercent else { return nil }
+        return Double(remaining) / rate * 3600
+    }
+
+    /// True when the projected ETA is shorter than the time until reset,
+    /// meaning the user will likely hit the limit before the window resets.
+    var willHitLimit: Bool {
+        guard let eta = etaToLimit, let reset = fiveHourResetInterval else { return false }
+        return eta < reset
+    }
+
+    /// Absolute clock time when the 5-hour window resets.
+    var fiveHourResetTime: Date? {
+        guard let resetsAt = statusLine?.rateLimits?.fiveHour?.resetsAt,
+              !isFiveHourExpired else { return nil }
+        return Date(timeIntervalSince1970: Double(resetsAt))
+    }
+
+    /// 7-day pacing: ratio of budget consumed vs time elapsed in the window.
+    enum PacingState { case underPace, onPace, overPace }
+
+    var sevenDayPacing: PacingState? {
+        guard let used = statusLine?.rateLimits?.sevenDay?.usedPercentage,
+              let resetsAt = statusLine?.rateLimits?.sevenDay?.resetsAt else { return nil }
+        let totalWindow: Double = 7 * 24 * 3600
+        let resetDate = Date(timeIntervalSince1970: Double(resetsAt))
+        let elapsed = totalWindow - resetDate.timeIntervalSince(displayNow)
+        guard elapsed > 0 else { return nil }
+        let elapsedFraction = elapsed / totalWindow
+        let expectedUsed = elapsedFraction * 100
+        let ratio = used / expectedUsed
+        if ratio < 0.8 { return .underPace }
+        if ratio > 1.2 { return .overPace }
+        return .onPace
+    }
+
+    var sevenDayDaysLeft: Int? {
+        guard let resetsAt = statusLine?.rateLimits?.sevenDay?.resetsAt else { return nil }
+        let reset = Date(timeIntervalSince1970: Double(resetsAt))
+        let seconds = reset.timeIntervalSince(displayNow)
+        guard seconds > 0 else { return nil }
+        return Int(ceil(seconds / 86400))
+    }
+
+    // MARK: - Menu bar
+
     var menuBarTitle: String {
         guard let remaining = fiveHourRemainingPercent else { return "—" }
         var text = "\(remaining)%"
@@ -133,6 +231,19 @@ final class AppState {
         for await data in statusLineWatcher.updates {
             statusLine = data
             displayNow = Date()
+
+            // Record snapshot for burn-rate computation.
+            if let data, let used = data.rateLimits?.fiveHour?.usedPercentage,
+               let resetsAt = data.rateLimits?.fiveHour?.resetsAt {
+                let snap = UsageSnapshot(timestamp: Date(),
+                                         usedPercent: used,
+                                         resetsAt: resetsAt)
+                // New window → clear old snapshots.
+                if let prev = snapshots.last, !snap.sameWindow(as: prev) {
+                    snapshots.clear()
+                }
+                snapshots.append(snap)
+            }
         }
     }
 
