@@ -83,7 +83,7 @@ ratio = actual_used% / expected_used%
 
 ### Background refresh
 
-Rate limits are account-wide but only returned in API response headers. If you work in the Claude desktop app, the CLI session's cached rate limits go stale. The app launches a background daemon that sends a minimal `claude -p "." --bare` every 60 seconds to refresh rate limits, keeping the display within ~1 minute of reality regardless of which Claude client you use.
+Rate limits are account-wide but only returned in API response headers. If you work in the Claude desktop app, the CLI session's cached rate limits go stale. The app launches a background daemon every 60 seconds that starts a minimal interactive Claude Code session (using `script` to fake a TTY), sends a single-character prompt with `--max-turns 1`, and exits. Because the session is interactive (not `-p`/print mode), the statusLine hook fires on the API response, writing fresh rate-limit data to status.json. This keeps the display within ~1 minute of reality regardless of which Claude client you use.
 
 ### Staleness handling
 
