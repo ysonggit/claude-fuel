@@ -36,6 +36,7 @@ The implemented `Services/`/`Models/` set the patterns the rest of the app shoul
 - **`UsageRecord` is the flattened currency**: `JSONLScanner` decodes raw `JSONLEntry` lines, deduplicates by `message.id`, and emits `[UsageRecord]`. Everything downstream (`Estimator`, views) consumes `UsageRecord`/`ScanResult`, never raw `JSONLEntry`.
 - **Lenient decoding**: missing JSONL subfields decode to zero, malformed lines are skipped — never crash parsing (NFR 4.2). Preserve this when extending the schema.
 - **`JSONLScanner` is an `actor`** holding cross-scan state (`records`, `cursors`); `AppState` will be `@MainActor`. Respect these isolation domains when wiring the watcher → scanner → state → views data flow (§5.3).
+- **`Scripts/claude-fuel-statusline.sh` must not regress real quota data.** A rate-limited session makes zero API calls and reports `rate_limits.five_hour.used_percentage = 0`. The script guards by comparing both `used_percentage` and `resets_at`: within the same window, if incoming `used_pct < existing`, reject (stale/rate-limited session); across window boundaries (different `resets_at`), accept the write (genuine quota reset). Preserve this invariant.
 
 ---
 

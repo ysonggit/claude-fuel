@@ -196,12 +196,33 @@ struct PopoverView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Waiting for Claude Code")
+            Text(emptyStateTitle)
                 .font(CFType.statValue)
-            Text("Configure Claude Code's statusLine command to run `Scripts/claude-fuel-statusline.sh`. The meter appears after Claude Code writes its first status payload.")
+            Text(emptyStateBody)
                 .font(CFType.body)
                 .foregroundStyle(CFColors.ink2)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Distinguish "user hasn't installed the script" from "everything is wired,
+    /// just no statusline event has fired yet". Both produce hasData == false,
+    /// but the fix is completely different.
+    private var emptyStateTitle: String {
+        switch state.statusLineScriptState {
+        case .notInstalled, .outOfDate: return "Install the status line script"
+        case .upToDate:                 return "Waiting for the next prompt"
+        }
+    }
+
+    private var emptyStateBody: String {
+        switch state.statusLineScriptState {
+        case .notInstalled:
+            return "Open Settings → Data → Install Script to set it up. claude-fuel reads what Claude Code writes through that hook — without it there is no data."
+        case .outOfDate:
+            return "The installed script is older than this build. Open Settings → Data → Reinstall to update it."
+        case .upToDate:
+            return "The hook is wired and the script is current. Claude Code only invokes it on prompt redraws — open any Claude Code session and press Enter once to push the first payload."
         }
     }
 
