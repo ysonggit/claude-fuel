@@ -9,6 +9,21 @@ import Observation
 final class AppState {
     private(set) var statusLine: StatusLineData?
     private(set) var displayNow = Date()
+    private(set) var statusLineScriptState: StatusLineScriptInstaller.InstallState = .notInstalled
+
+    /// Re-checks whether ~/.claude/claude-fuel-statusline.sh matches the
+    /// canonical script bundled with this build. Cheap (hash compare); safe
+    /// to call from app launch and after a manual install.
+    func refreshScriptState() {
+        statusLineScriptState = StatusLineScriptInstaller.currentState()
+    }
+
+    /// Writes the canonical script and refreshes the cached state. Rethrows
+    /// filesystem errors so the UI can show them rather than silently fail.
+    func installStatusLineScript() throws {
+        try StatusLineScriptInstaller.install()
+        refreshScriptState()
+    }
 
     var settings: Settings {
         didSet {
@@ -228,6 +243,7 @@ final class AppState {
     }
 
     private func start() async {
+        refreshScriptState()
         syncIslandVisibility()
         startDisplayClock()
         startRefreshDaemon()
