@@ -28,9 +28,12 @@ if [[ -f "$status" ]] && command -v jq &>/dev/null; then
   existing_reset=$(jq -r '.rate_limits.five_hour.resets_at // 0' "$status")
 
   # Same window + incoming reports lower usage → rate-limited/stale session.
+  # Don't write fabricated data (e.g. used_percentage=100) — that creates a
+  # deadlock: next real session with 6% gets blocked because 6 < 100.
+  # Instead, preserve the last known real data and just update mtime.
   if (( incoming_reset == existing_reset )) \
      && (( $(echo "$incoming_used < $existing_used" | bc -l 2>/dev/null || echo 0) )); then
-    touch "$status"   # update mtime so staleness tracking works
+    touch "$status"
     exit 0
   fi
 fi
@@ -38,11 +41,30 @@ echo "$input" > "$status"
 
 # Echo compact status for Claude Code's terminal UI.
 if command -v jq &>/dev/null; then
-  model=$(echo "$input" | jq -r '.model.display_name // "?"')
-  five_h=$(echo "$input" | jq -r '100 - (.rate_limits.five_hour.used_percentage // 0)' | cut -d. -f1)
-  seven_d=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // 0' | cut -d. -f1)
-  ctx=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
-  echo "[$model] 5h:${five_h}% left 7d:${seven_d}% used ctx:${ctx}%"
+  used_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // 0' | cut -d. -f1)
+  resets_at=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // ""')
+
+  # Build progress bar: 10 cells
+  bar_len=10
+  filled=$(( used_pct * bar_len / 100 ))
+  empty=$(( bar_len - filled ))
+  bar=""
+  for ((i=0; i<filled; i++)); do bar+="█"; done
+  for ((i=0; i<empty; i++)); do bar+="░"; done
+
+  # Compute time remaining until reset (resets_at is unix epoch)
+  reset_str=""
+  if [[ -n "$resets_at" && "$resets_at" != "null" && "$resets_at" != "0" ]]; then
+    now_epoch=$(date +%s)
+    diff=$(( resets_at - now_epoch ))
+    if (( diff > 0 )); then
+      hrs=$(( diff / 3600 ))
+      mins=$(( (diff % 3600) / 60 ))
+      reset_str=" resets ${hrs}h${mins}m"
+    fi
+  fi
+
+  echo "[${bar}] ${used_pct}%${reset_str}"
 else
   echo "claude-fuel: status updated"
 fi

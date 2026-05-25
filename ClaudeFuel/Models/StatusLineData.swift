@@ -3,6 +3,14 @@ import Foundation
 /// Decoded from the JSON blob that Claude Code pipes to the status line
 /// script. Contains precise server-side usage data — no local estimation.
 struct StatusLineData: Decodable, Equatable {
+    /// Excludes `fileModifiedAt` — only compares API-provided fields.
+    static func == (lhs: StatusLineData, rhs: StatusLineData) -> Bool {
+        lhs.model == rhs.model
+            && lhs.contextWindow == rhs.contextWindow
+            && lhs.rateLimits == rhs.rateLimits
+            && lhs.sessionId == rhs.sessionId
+            && lhs.cost == rhs.cost
+    }
     let model: Model?
     let contextWindow: ContextWindow?
     let rateLimits: RateLimits?
