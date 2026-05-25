@@ -12,7 +12,7 @@ final class StatusLineWatcher: @unchecked Sendable {
     private var fallbackTimer: DispatchSourceTimer?
     private let queue = DispatchQueue(label: "claude-fuel.status-line-watcher")
     private var continuation: AsyncStream<StatusLineData?>.Continuation?
-    private var lastModified: Date?
+    private var lastEmitted: StatusLineData?
 
     /// Infinite stream of decoded status updates. `nil` means the status file
     /// disappeared and the app should clear any previously displayed reading.
@@ -78,29 +78,31 @@ final class StatusLineWatcher: @unchecked Sendable {
 
     private func readAndEmit() {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            if lastModified != nil {
-                lastModified = nil
+            if lastEmitted != nil {
+                lastEmitted = nil
                 continuation?.yield(nil)
             }
             return
-        }
-
-        // Skip if file hasn't changed.
-        let modified: Date?
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
-           let mod = attrs[.modificationDate] as? Date {
-            if mod == lastModified { return }
-            lastModified = mod
-            modified = mod
-        } else {
-            modified = nil
         }
 
         guard let data = try? Data(contentsOf: fileURL),
               var decoded = try? JSONDecoder().decode(StatusLineData.self, from: data)
         else { return }
 
+        // Set fileModifiedAt before equality check (== now ignores this field).
+        let modified: Date?
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+           let mod = attrs[.modificationDate] as? Date {
+            modified = mod
+        } else {
+            modified = nil
+        }
         decoded.fileModifiedAt = modified ?? Date()
+
+        // Skip if API-provided fields haven't changed.
+        if decoded == lastEmitted { return }
+        lastEmitted = decoded
+
         continuation?.yield(decoded)
     }
 }
