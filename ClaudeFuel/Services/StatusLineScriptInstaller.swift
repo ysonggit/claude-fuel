@@ -88,7 +88,15 @@ if [[ -f "$status" ]] && command -v jq &>/dev/null; then
   # Same window + incoming reports lower usage → rate-limited/stale session.
   if (( incoming_reset == existing_reset )) \
      && (( $(echo "$incoming_used < $existing_used" | bc -l 2>/dev/null || echo 0) )); then
-    touch "$status"   # update mtime so staleness tracking works
+    # The incoming session made fewer (or zero) API calls. When the drop is
+    # drastic (<= 1%), we're fully rate-limited — write used_percentage=100
+    # so the island shows 0% remaining instead of stale data.
+    if (( $(echo "$incoming_used <= 1" | bc -l 2>/dev/null || echo 0) )); then
+      jq '.rate_limits.five_hour.used_percentage = 100' "$status" > "$status.tmp" \
+        && mv "$status.tmp" "$status"
+    else
+      touch "$status"   # moderate drop: preserve existing, update mtime
+    fi
     exit 0
   fi
 fi
