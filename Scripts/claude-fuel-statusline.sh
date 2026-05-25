@@ -39,6 +39,7 @@ if [[ -f "$status" ]] && command -v jq &>/dev/null; then
     else
       touch "$status"   # moderate drop: preserve existing, update mtime
     fi
+    touch "$status"   # update mtime so staleness tracking works
     exit 0
   fi
 fi
